@@ -1,0 +1,90 @@
+# Global settings for SSH post-installation scripts
+ssh_defaults:
+  user: "ubuntu"
+  # Use EITHER password or a key file. Key is recommended.
+  # password: "your-password"
+  key_path: "~/.ssh/id_rsa_lab" # Path to your private SSH key for lab VMs
+
+# --- Platform Credentials (use environment variables or fill these in) ---
+# It's highly recommended to use environment variables for passwords and keys.
+credentials:
+  proxmox:
+    host: "192.168.1.10"
+    user: "root@pam"
+    password: "your-proxmox-password"
+    node: "pve"
+  vmware:
+    host: "192.168.1.11"
+    user: "administrator@vsphere.local"
+    password: "your-vsphere-password"
+    datacenter: "Datacenter"
+  hyperv: # For remote Hyper-V host
+    host: "192.168.1.12"
+    user: "domain\\administrator"
+    password: "your-windows-password"
+
+# --- VM Definitions ---
+aws:
+  - name: alp-aws-web-01
+    instance_type: t2.micro
+    ami_id: ami-0c55b159cbfafe1f0
+    key_name: "your-aws-keypair-name"
+    network:
+      security_group_ids: ["sg-012345abcdef"]
+      subnet_id: "subnet-012345abcdef"
+    post_install:
+      - "sudo apt-get update -y && sudo apt-get install -y nginx"
+      - "echo '<h1>Provisioned by ALP on AWS</h1>' | sudo tee /var/www/html/index.html"
+
+proxmox:
+  - name: alp-proxmox-01
+    template: "ubuntu-2204-cloud-template" # Template must have QEMU Guest Agent
+    vm_id: 301
+    cpu: 2
+    ram: 2048 # MB
+    network:
+      bridge: "vmbr0" # This bridge must exist on the Proxmox host
+    post_install:
+      - "touch /home/ubuntu/created_by_alp.txt"
+
+vmware:
+  - name: alp-vmware-01
+    template: "ubuntu-2204-template" # Template must have open-vm-tools
+    cpu: 2
+    ram: 2048 # MB
+    datastore: "datastore1"
+    cluster: "Cluster1"
+    network:
+      port_group: "Lab Network"
+      create_if_missing: true # Creates a new Standard vSwitch and Port Group
+    post_install:
+      - "sudo apt-get update -y && sudo apt-get install -y htop"
+
+kvm:
+  - name: alp-kvm-01
+    iso_path: "/var/lib/libvirt/images/ubuntu-22.04.3-live-server-amd64.iso"
+    cpu: 2
+    ram: 2048 # MB
+    disk:
+      path: "/var/lib/libvirt/images/alp-kvm-01.qcow2"
+      size: "20G"
+    network:
+      source: "default"
+      create_if_missing: true
+    post_install: # OS must have qemu-guest-agent installed and running
+      - "hostname"
+
+hyperv:
+  - name: alp-hyperv-01
+    generation: 2
+    cpu: 2
+    ram: 2048 # MB
+    disk:
+      path: "C:\\HyperV\\Disks\\alp-hyperv-01.vhdx"
+      size_gb: 20
+    network:
+      switch_name: "LabSwitch"
+      switch_type: "Internal" # 'Internal', 'External', or 'Private'
+      create_if_missing: true
+    post_install: # Guest OS must have Hyper-V Integration Services
+      - "echo 'Hello from Hyper-V'"
